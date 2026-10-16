@@ -1,0 +1,13 @@
+# generated export + package output
+Output~/
+
+# BepInEx reference assemblies, extracted on demand by build-plugin.sh
+Plugin~/refs/
+Plugin~/refs.rsp
+Plugin~/.refs-tmp/
+
+# Unity generates these locally
+*.meta
+
+# OS
+.DS_Store
