@@ -61,8 +61,10 @@ namespace Sp2Pack
             var mats = new MaterialTable(texDir, cfg, result);
             var objPath = Path.Combine(outDir, objName + ".obj");
 
-            // UV is written only if every source mesh actually has it.
-            bool globalUV = cfg.exportUV && AllHaveUV(scan, cfg);
+            // Always write UVs when enabled. A single mesh without UVs used to disable
+            // them for the whole file, which made every texture sample one texel —
+            // the "lost materials" bug.
+            bool globalUV = cfg.exportUV;
 
             // Triangle soup, resolved into world vertices + a material index.
             var triMat = new List<int>(1 << 16);
@@ -101,12 +103,20 @@ namespace Sp2Pack
                         w.Write("v "); w.Write(F(p.x, cfg)); w.Write(' ');
                         w.Write(F(p.y, cfg)); w.Write(' '); w.Write(F(p.z, cfg)); w.Write('\n');
                     }
-                    if (hasUV)
+                    if (globalUV)
                     {
-                        for (int v = 0; v < uvs.Length; v++)
+                        if (hasUV)
                         {
-                            w.Write("vt "); w.Write(F(uvs[v].x, cfg)); w.Write(' ');
-                            w.Write(F(uvs[v].y, cfg)); w.Write('\n');
+                            for (int v = 0; v < uvs.Length; v++)
+                            {
+                                w.Write("vt "); w.Write(F(uvs[v].x, cfg)); w.Write(' ');
+                                w.Write(F(uvs[v].y, cfg)); w.Write('\n');
+                            }
+                        }
+                        else
+                        {
+                            // Keep vt indices aligned with v even for meshes without UVs.
+                            for (int v = 0; v < verts.Length; v++) w.Write("vt 0 0\n");
                         }
                     }
 
@@ -303,18 +313,6 @@ namespace Sp2Pack
 
         // ------------------------------------------------------------ helpers
 
-        static bool AllHaveUV(Sp2Scan scan, Sp2Config cfg)
-        {
-            for (int i = 0; i < scan.entries.Count; i++)
-            {
-                var m = scan.entries[i].mesh;
-                if (m == null) continue;
-                var uv = m.uv;
-                if (uv == null || uv.Length != m.vertexCount) return false;
-            }
-            return true;
-        }
-
         static Mesh ResolveMesh(Sp2Entry e)
         {
             if (!e.skinned) return e.mesh;
@@ -434,7 +432,7 @@ namespace Sp2Pack
                     _texFiles[id] = null;
                     return null;
                 }
-                _texFiles[id] = file;
+                _texFiles[id] = "tex/" + file;
                 _result.texBytes += bytes;
                 return "tex/" + file;
             }
